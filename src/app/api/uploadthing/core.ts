@@ -7,7 +7,7 @@ import { PDFLoader } from "langchain/document_loaders/fs/pdf";
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai'
 import { PineconeStore } from 'langchain/vectorstores/pinecone'
 
-import { pinecone } from "@/lib/pinecone";
+import { getPineconeClient } from "@/lib/pinecone";
 
 const f = createUploadthing(
   // {
@@ -68,6 +68,7 @@ export const ourFileRouter = {
         const pageLevelDocs = await loader.load()
         const pageAmt = pageLevelDocs.length
 
+        const pinecone = await getPineconeClient()
         const pineconeIndex = pinecone.Index("chat-doc")
 
         const embeddings = new OpenAIEmbeddings({

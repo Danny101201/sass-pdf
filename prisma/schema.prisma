@@ -52,7 +52,7 @@ model Message {
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
 
-  File    File?   @relation(fields: [file_id], references: [id])
+  File    File?   @relation(fields: [file_id], references: [id],onDelete: Cascade )
   file_id String
   User    User?   @relation(fields: [user_id], references: [id])
   user_id String

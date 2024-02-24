@@ -4,6 +4,7 @@ import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { z } from 'zod'
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { INFINITE_QUERY_LIMIT } from '@/config/infinite-query';
 export const appRouter = router({
   authCallBack: publicProcedure.query(async ({ ctx }) => {
     const { db } = ctx
@@ -51,6 +52,7 @@ export const appRouter = router({
     id: z.string()
   })).mutation(async ({ input, ctx }) => {
     try {
+      console.log(input)
       const { id } = input
       const { db } = ctx
       await db.file.findFirstOrThrow({
@@ -83,6 +85,49 @@ export const appRouter = router({
       })
       if (!file) return { status: 'PENDING' as const }
       return { status: file.uploadStatus }
+    }),
+  getFileMessages: privateProcedure
+    .input(z.object({
+      limit: z.number().min(1).max(100).nullish(),
+      cursor: z.string().nullish(),
+      fieldId: z.string()
+    }))
+    .query(async ({ ctx, input }) => {
+      const { db } = ctx
+      const { cursor } = input
+      const limit = input.limit ?? INFINITE_QUERY_LIMIT
+      const file = await db.file.findFirst({
+        where: {
+          id: input.fieldId
+        }
+      })
+      if (!file) throw new TRPCError({ code: 'NOT_FOUND', message: 'file not found' })
+      const messages = await db.message.findMany({
+        take: limit + 1,
+        where: {
+          file_id: input.fieldId
+        },
+        orderBy: {
+          id: 'desc'
+        },
+        cursor: cursor ? {
+          id: cursor
+        } : undefined,
+        select: {
+          id: true,
+          isUserMessage: true,
+          created_at: true,
+          text: true
+        }
+      })
+      let nextCursor: typeof cursor | undefined = undefined
+      if (messages.length > limit) {
+        nextCursor = messages.pop()?.id
+      }
+      return {
+        messages,
+        nextCursor
+      }
     })
 });
 const createCallerCaller = createCallerFactory(appRouter)

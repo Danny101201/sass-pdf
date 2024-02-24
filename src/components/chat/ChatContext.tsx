@@ -1,7 +1,8 @@
+'use client'
 import { PropsWithChildren, createContext, useContext, useState } from "react"
 import { useToast } from "../ui/use-toast"
 import { useMutation } from "@tanstack/react-query"
-
+import { trpc } from "@/utils/trpc"
 
 
 type StreamResponse = {
@@ -21,10 +22,10 @@ interface ChatContextProviderProps extends PropsWithChildren {
   filedId: string
 }
 export const ChatContextProvider = ({ filedId, children }: ChatContextProviderProps) => {
+  const trpcUtils = trpc.useUtils()
   const [message, setMessage] = useState<string>('')
-  const [isLoading, setIsLoading] = useState<boolean>(false)
   const { toast } = useToast()
-  const { mutateAsync: sendMessage } = useMutation({
+  const { mutateAsync: sendMessage, isLoading } = useMutation({
     mutationFn: async ({ message }: { message: string }) => {
       const response = await fetch('/api/message', {
         method: 'POST',
@@ -37,8 +38,15 @@ export const ChatContextProvider = ({ filedId, children }: ChatContextProviderPr
         throw new Error('Failed to send message')
       }
       return response.json()
+    },
+    onSettled: () => {
+      trpcUtils.getFileMessages.invalidate()
+    },
+    onError: (error) => {
+      console.log(error)
     }
   })
+
   const addMessage = () => sendMessage({ message })
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessage(e.target.value)
