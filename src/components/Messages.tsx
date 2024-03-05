@@ -17,7 +17,7 @@ export const Messages = ({ fileId }: MessagesProps) => {
   const { data, isLoading, fetchNextPage } = trpc.getFileMessages.useInfiniteQuery(
     {
       limit: INFINITE_QUERY_LIMIT,
-      fieldId: fileId
+      filedId: fileId
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor
@@ -65,11 +65,13 @@ export const Messages = ({ fileId }: MessagesProps) => {
                 ref={ref}
                 message={message}
                 key={message.id}
+                isNextMessageSamePerson={isNextMessageSamePerson}
               />
             )
           } else
             return (
               <Message
+                isNextMessageSamePerson={isNextMessageSamePerson}
                 message={message}
                 key={message.id}
               />

@@ -90,7 +90,7 @@ export const appRouter = router({
     .input(z.object({
       limit: z.number().min(1).max(100).nullish(),
       cursor: z.string().nullish(),
-      fieldId: z.string()
+      filedId: z.string()
     }))
     .query(async ({ ctx, input }) => {
       const { db } = ctx
@@ -98,14 +98,14 @@ export const appRouter = router({
       const limit = input.limit ?? INFINITE_QUERY_LIMIT
       const file = await db.file.findFirst({
         where: {
-          id: input.fieldId
+          id: input.filedId
         }
       })
       if (!file) throw new TRPCError({ code: 'NOT_FOUND', message: 'file not found' })
       const messages = await db.message.findMany({
         take: limit + 1,
         where: {
-          file_id: input.fieldId
+          file_id: input.filedId
         },
         orderBy: {
           id: 'desc'

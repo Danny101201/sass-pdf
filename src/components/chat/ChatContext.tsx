@@ -1,8 +1,9 @@
 'use client'
-import { PropsWithChildren, createContext, useContext, useState } from "react"
+import { PropsWithChildren, createContext, useContext, useRef, useState } from "react"
 import { useToast } from "../ui/use-toast"
 import { useMutation } from "@tanstack/react-query"
 import { trpc } from "@/utils/trpc"
+import { INFINITE_QUERY_LIMIT } from "@/config/infinite-query"
 
 
 type StreamResponse = {
@@ -25,6 +26,7 @@ export const ChatContextProvider = ({ filedId, children }: ChatContextProviderPr
   const trpcUtils = trpc.useUtils()
   const [message, setMessage] = useState<string>('')
   const { toast } = useToast()
+  const backUpMessage = useRef('')
   const { mutateAsync: sendMessage, isLoading } = useMutation({
     mutationFn: async ({ message }: { message: string }) => {
       const response = await fetch('/api/message', {
@@ -39,11 +41,53 @@ export const ChatContextProvider = ({ filedId, children }: ChatContextProviderPr
       }
       return response.json()
     },
-    onSettled: () => {
-      trpcUtils.getFileMessages.invalidate()
+    onMutate: async () => {
+      backUpMessage.current = message
+      setMessage('')
+      await trpcUtils.getFileMessages.cancel()
+      const previousMessages = trpcUtils.getFileMessages.getInfiniteData()
+      trpcUtils.getFileMessages.setInfiniteData(
+        { limit: INFINITE_QUERY_LIMIT, filedId },
+        (old) => {
+          if (!old) {
+            return {
+              pages: [],
+              pageParams: []
+            }
+          }
+          let newPages = [...old.pages]
+          let lastPage = newPages[0]!
+          lastPage.messages = [
+            {
+              created_at: new Date().toISOString(),
+              id: crypto.randomUUID(),
+              text: message,
+              isUserMessage: true
+            },
+            ...lastPage.messages
+          ]
+          newPages[0] = lastPage
+          return {
+            ...old,
+            pages: newPages
+          }
+        }
+      )
+      return {
+        previousMessages
+      }
     },
-    onError: (error) => {
-      console.log(error)
+    onSettled: () => {
+      trpcUtils.getFileMessages.invalidate({ filedId })
+    },
+    onSuccess: () => {
+
+    },
+    onError: (error, newMessage, context) => {
+      trpcUtils.getFileMessages.setInfiniteData(
+        { limit: INFINITE_QUERY_LIMIT, filedId },
+        context?.previousMessages
+      )
     }
   })
 
